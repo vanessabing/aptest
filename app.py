@@ -46,12 +46,12 @@ def sale():
     if product in inventory:
         if inventory[product] >= quantity:
             inventory[product] -= quantity
-            res = f"【交易成功】{product} 减少了 {quantity}，剩余: {inventory[product]}"
+            res = f"【交易成功】product 减少了 quantity，剩余: {inventory[product]}"
             print(res)
             return res
-        return f"【库存不足】{product} 仅剩 {inventory[product]}", 400
+        return f"【库存不足】product 仅剩 {inventory[product]}", 400
     
-    return f"【商品不匹配】库里没有 '{product}'，请检查名称是否完全一致", 400
+    return f"【商品不匹配】库里没有 'product'，请检查名称是否完全一致", 400
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
