@@ -1,4 +1,4 @@
-import os
+mport os
 from flask import Flask, request, jsonify
 
 app = Flask(__name__)
@@ -15,43 +15,35 @@ inventory = {
 @app.route('/')
 def home():
     # 访问根目录时返回一个简单的欢迎页，方便测试程序是否活着
-    return "<h1>库存管理系统已在云端运行</h1><p>接口已就绪。</p >"
-
-@app.route('/sale', methods=['POST'])
+    return "<h1>库存管理系统已在云端运行</h1><p>接口已就绪。</@app.route('/sale', methods=['POST'])
 def sale():
-    # 兼容 Jotform 的数据获取方式
-    # 如果是 JSON 格式（小程序），用 request.json
-    # 如果是表单格式（Jotform），用 request.form
-    data = request.json if request.is_json else request.form.to_dict()
+    # 获取表单数据
+    data = request.form
     
-    # 这里的 key "product" 和 "quantity" 需要和你在前端设置的字段名一致
-    product = data.get("{product}")
-    qty_raw = data.get("{quantity}")
+    # 【核心改动】：兼容你截图里那个带左大括号的字段名
+    # 它会同时尝试找 "{product" 和 "product"
+    product = data.get('{product') or data.get('product')
+    qty_raw = data.get('{quantity') or data.get('quantity')
     
-    if not product or not qty_raw:
-        return jsonify({"status": "error", "message": "参数不全"}), 400
+    # 打印日志（方便你在 Render 的 Logs 里看清楚收到了什么）
+    print(f"收到请求 - 商品: {product}, 数量: {qty_raw}")
+
+    if not product or qty_raw is None:
+        return f"错误：未收到有效数据。收到的原始数据为: {list(data.keys())}", 400
 
     try:
         quantity = int(qty_raw)
-    except ValueError:
-        return jsonify({"status": "error", "message": "数量必须是数字"}), 400
+    except (ValueError, TypeError):
+        return "错误：数量必须是数字", 400
 
+    # 逻辑判断
     if product in inventory:
         if inventory[product] >= quantity:
             inventory[product] -= quantity
-            return jsonify({
-                "status": "success",
-                "product": product,
-                "remaining": inventory[product]
-            })
-        else:
-            return jsonify({"status": "error", "message": "库存不足"})
+            res_msg = f"成功！{product} 减去 {quantity}，剩余库存: {inventory[product]}"
+            print(res_msg)
+            return res_msg
+        return f"错误：{product} 库存不足（现存 {inventory[product]}）", 400
     else:
-        return jsonify({"status": "error", "message": "商品不存在"})
+        return f"错误：仓库中没有商品 '{product}'，请检查名称是否完全一致", 400
 
-# 核心改动：云端部署专用启动代码
-if __name__ == "__main__":
-    # Render 等平台会通过环境变量 PORT 告诉程序该用哪个端口
-    port = int(os.environ.get("PORT", 8080)) 
-    # host="0.0.0.0" 意味着允许外网访问
-    app.run(host="0.0.0.0", port=port)
