@@ -25,8 +25,8 @@ def sale():
     data = request.json if request.is_json else request.form.to_dict()
     
     # 这里的 key "product" 和 "quantity" 需要和你在前端设置的字段名一致
-    product = data.get("product")
-    qty_raw = data.get("quantity")
+    product = data.get("{product}")
+    qty_raw = data.get("{quantity}")
     
     if not product or not qty_raw:
         return jsonify({"status": "error", "message": "参数不全"}), 400
