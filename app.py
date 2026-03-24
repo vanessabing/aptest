@@ -3,7 +3,7 @@ from flask import Flask, request
 
 app = Flask(__name__)
 
-# 初始库存 - 增加了一些容错性
+# 初始库存清单
 inventory = {
     "耳机": 30,
     "数据线": 50,
@@ -14,49 +14,58 @@ inventory = {
 
 @app.route('/')
 def home():
+    # 访问主页直接看实时库存
     items = "".join([f"<li>{k}: {v}</li>" for k, v in inventory.items()])
-    return f"<h1>鑫宝通讯 - 实时库存</h1><ul>{items}</ul>"
+    return f"<h1>鑫宝通讯 - 实时库存控制台</h1><ul>{items}</ul>"
 
 @app.route('/sale', methods=['POST'])
 def sale():
-    # 拿到 Jotform 发送的所有原始数据
+    # 获取原始数据
     data = request.form.to_dict()
-    print(f"收到请求: {data}")
+    print(f"DEBUG - 原始数据: {data}")
 
     product = None
     qty_raw = None
 
-    # 模糊匹配：只要键名里包含 'product' 或 'quantity' 就抓取
+    # 1. 自动寻找商品名和数量（适配 q5, q6 或任何带关键字的名字）
     for key, value in data.items():
         if 'product' in key.lower():
-            product = value.strip()
+            product = value
         if 'quantity' in key.lower():
             qty_raw = value
 
-    if not product or not qty_raw:
-        return f"错误：未找到字段。收到的键有: {list(data.keys())}", 400
+    if not product or qty_raw is None:
+        return f"错误：未找到字段。收到的键: {list(data.keys())}", 400
 
-    # 处理编码问题：如果 product 是编码格式，尝试转换
-    if "\\u" in product:
+    # 2. 【核心修复】处理中文编码（把 \u8033 这种转回“耳机”）
+    if '\\u' in product:
         try:
-            product = product.encode('utf-16').decode('unicode_escape')
+            product = product.encode('utf-8').decode('unicode_escape')
         except:
-            pass
+            # 如果转换失败，尝试另一种方式
+            import json
+            product = json.loads(f'"{product}"')
 
     try:
         quantity = int(qty_raw)
     except:
-        return "错误：数量必须是数字", 400
+        return f"错误：数量 '{qty_raw}' 不是数字", 400
 
-    # 检查库存
+    # 3. 匹配库存
+    # 移除可能存在的空格
+    product = product.strip()
+    
     if product in inventory:
         if inventory[product] >= quantity:
             inventory[product] -= quantity
-            return f"【交易成功】{product} 减少 {quantity}，剩余: {inventory[product]}"
+            res = f"【交易成功】{product} 减少 {quantity}，剩余: {inventory[product]}"
+            print(res)
+            return res
         return f"【库存不足】{product} 仅剩 {inventory[product]}", 400
     
-    return f"【商品不存在】库里没有 '{product}'，请确保填写的名称与库存清单一致", 400
+    return f"【错误】库里没找到 '{product}'。请检查名称是否完全一致。", 400
 
 if __name__ == "__main__":
+    # 适配 Render 端口
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
